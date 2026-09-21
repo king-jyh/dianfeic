@@ -1,1 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#f39c12">
+    <title>宿舍电量助手</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            min-height: 100vh;
+            color: #333;
+            padding-bottom: 30px;
+        }
+        .header {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            color: white;
+            padding: 20px 16px 24px;
+            text-align: center;
+            border-radius: 0 0 24px 24px;
+            box-shadow: 0 4px 20px rgba(243, 156, 18, 0.3);
+        }
+        .header h1 { font-size: 22px; font-weight: 600; }
+        .header p { font-size: 13px; opacity: 0.9; margin-top: 4px; }
+        
+        .card {
+            background: white;
+            margin: 16px;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 12px;
+        }
+        .info-item { text-align: center; }
+        .info-item .label { font-size: 13px; color: #888; margin-bottom: 6px; }
+        .info-item .value { font-size: 28px; font-weight: 700; }
+        .info-item .value.green { color: #27ae60; }
+        .info-item .value.red { color: #e74c3c; }
+        .info-item .value.amount { font-size: 22px; color: #2980b9; }
+        
+        .room-name {
+            text-align: center;
+            font-size: 15px;
+            color: #555;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        
+        .status {
+            text-align: center;
+            font-size: 13px;
+            color: #999;
+            margin-top: 12px;
+        }
+        
+        .btn {
+            display: block;
+            width: calc(100% - 32px);
+            margin: 0 16px 12px;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            box-shadow: 0 4px 12px rgba(243, 156, 18, 0.35);
+            cursor: pointer;
+            transition: transform 0.15s, opacity 0.15s;
+        }
+        .btn:active { transform: scale(0.98); opacity: 0.9; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        
+        .history-title {
+            margin: 20px 16px 10px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #444;
+        }
+        
+        .history-list {
+            margin: 0 16px;
+        }
+        .history-item {
+            background: white;
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .history-item .date { font-size: 14px; font-weight: 500; }
+        .history-item .detail { font-size: 12px; color: #888; margin-top: 3px; }
+        .history-item .usage {
+            text-align: right;
+            font-size: 15px;
+            font-weight: 600;
+            color: #e67e22;
+        }
+        
+        .warning {
+            background: #fdecea;
+            color: #c0392b;
+            padding: 12px 16px;
+            margin: 0 16px 12px;
+            border-radius: 12px;
+            font-size: 14px;
+            text-align: center;
+            display: none;
+        }
+        .warning.show { display: block; }
+        
+        .empty { text-align: center; color: #aaa; padding: 30px; font-size: 14px; }
+        
+        .footer {
+            text-align: center;
+            font-size: 12px;
+            color: #bbb;
+            margin-top: 24px;
+            padding: 0 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>宿舍电量助手</h1>
+        <p>实时查询 · 低电量预警 · 用电记录</p>
+    </div>
+    
+    <div class="card">
+        <div class="room-name" id="roomName">--</div>
+        <div class="info-grid">
+            <div class="info-item">
+                <div class="label">剩余电量</div>
+                <div class="value green" id="surplus">--</div>
+            </div>
+            <div class="info-item">
+                <div class="label">剩余金额</div>
+                <div class="value amount" id="amount">--</div>
+            </div>
+        </div>
+        <div class="status" id="status">点击下方按钮查询</div>
+    </div>
+    
+    <div class="warning" id="warning">
+        ⚠ 电量低于 {{ low_threshold }} 度，请及时充值！
+    </div>
+    
+    <button class="btn" id="queryBtn" onclick="doQuery()">立即查询</button>
+    
+    <div class="history-title">最近用电记录</div>
+    <div class="history-list" id="historyList">
+        <div class="empty">暂无记录，请先查询</div>
+    </div>
+    
+    <div class="footer">
+        低电量预警阈值：{{ low_threshold }} 度<br>
+        仅供个人使用 · Cookie 过期后需更新
+    </div>
 
+    <script>
+        async function doQuery() {
+            const btn = document.getElementById('queryBtn');
+            const status = document.getElementById('status');
+            btn.disabled = true;
+            btn.textContent = '查询中...';
+            status.textContent = '正在查询，请稍候...';
+            
+            try {
+                const res = await fetch('/api/query');
+                const data = await res.json();
+                
+                if (!data.success) {
+                    status.textContent = '查询失败：' + data.message;
+                    alert('查询失败：' + data.message);
+                    return;
+                }
+                
+                document.getElementById('roomName').textContent = data.room_name;
+                document.getElementById('surplus').textContent = data.surplus.toFixed(2) + ' 度';
+                document.getElementById('amount').textContent = '¥' + data.amount.toFixed(2);
+                status.textContent = '更新于 ' + data.update_time;
+                
+                const surplusEl = document.getElementById('surplus');
+                const warning = document.getElementById('warning');
+                
+                if (data.is_low) {
+                    surplusEl.className = 'value red';
+                    warning.classList.add('show');
+                } else {
+                    surplusEl.className = 'value green';
+                    warning.classList.remove('show');
+                }
+                
+                loadHistory();
+                
+            } catch (e) {
+                status.textContent = '网络错误，请检查服务是否启动';
+                alert('网络错误：' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '立即查询';
+            }
+        }
+        
+        async function loadHistory() {
+            try {
+                const res = await fetch('/api/history?limit=20');
+                const data = await res.json();
+                const list = document.getElementById('historyList');
+                
+                if (!data.success || data.data.length === 0) {
+                    list.innerHTML = '<div class="empty">暂无记录</div>';
+                    return;
+                }
+                
+                list.innerHTML = data.data.map(item => {
+                    const usage = item.daily_usage !== null ? item.daily_usage.toFixed(2) + ' 度' : '—';
+                    return `
+                        <div class="history-item">
+                            <div>
+                                <div class="date">${item.date}</div>
+                                <div class="detail">剩余 ${item.surplus.toFixed(2)} 度 · ¥${item.amount.toFixed(2)}</div>
+                            </div>
+                            <div class="usage">${usage}</div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                console.error(e);
+            }
+        }
+        
+        // 页面加载时自动查一次 + 加载历史
+        window.onload = () => {
+            doQuery();
+        };
+    </script>
+</body>
+</html>
